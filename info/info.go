@@ -47,10 +47,12 @@ func (d Metadata) Get(key string) (string, bool) {
 
 func NewMetadataFromEntry(entry walk.Entry) *meta.Data {
 	path := entry.Path()
+	name := entry.Info().Name()
 	return meta.NewData(map[string]string{
 		"path":     path,
 		"dir":      filepath.Dir(path),
-		"name":     entry.Info().Name(),
+		"name":     name,
+		"ext":      filepath.Ext(name),
 		"size":     fmt.Sprint(entry.Info().Size()),
 		"mode":     fmt.Sprintf("%o", entry.Info().Mode()),
 		"mod_time": entry.Info().ModTime().Format(time.DateTime),
