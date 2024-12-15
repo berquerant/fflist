@@ -58,6 +58,7 @@ func NewMetadataFromEntry(entry walk.Entry) *meta.Data {
 		"name":     name,
 		"ext":      ext,
 		"basename": strings.TrimRight(name, ext),
+		"basepath": strings.TrimRight(path, ext),
 		"size":     fmt.Sprint(entry.Info().Size()),
 		"mode":     fmt.Sprintf("%o", entry.Info().Mode()),
 		"mod_time": entry.Info().ModTime().Format(time.DateTime),
