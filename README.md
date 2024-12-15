@@ -34,6 +34,10 @@ The available 'key' include the following:
 - mode: The file permissions (in octal)
 - mod_time: The last modification time of the file
 - size: The file size (in bytes)
+- dir: All but the last element of path
+- ext: The file name extension
+- basename: name but ext
+- basepath: path but ext
 
 Depending on the type of media file, the following 'key' may also be available:
 
