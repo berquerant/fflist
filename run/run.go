@@ -160,8 +160,8 @@ func (q *Query) output(data info.Getter) error {
 	}
 
 	path, _ := data.Get("path")
-	_, err := fmt.Println(path)
-	return err
+	fmt.Println(path)
+	return nil
 }
 
 func (q *Query) outputMetrics(duration time.Duration) error {
@@ -169,9 +169,9 @@ func (q *Query) outputMetrics(duration time.Duration) error {
 		return nil
 	}
 
-	_, err := fmt.Fprintf(os.Stderr, "%s\n", logx.Jsonify(map[string]any{
+	fmt.Fprintf(os.Stderr, "%s\n", logx.Jsonify(map[string]any{
 		"Duration": duration.Seconds(),
 		"Metrics":  metric.Get(),
 	}))
-	return err
+	return nil
 }
