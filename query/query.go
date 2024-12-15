@@ -1,6 +1,7 @@
 package query
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,7 +26,7 @@ func Parse(s string) (Query, error) {
 
 // Selector determines if a file matches the conditions using its metadata.
 type Selector interface {
-	Select(data info.Getter) bool
+	Select(ctx context.Context, data info.Getter) bool
 }
 
 var (
@@ -42,9 +43,9 @@ type AndSelector struct {
 	selectors []Selector
 }
 
-func (s AndSelector) Select(data info.Getter) bool {
+func (s AndSelector) Select(ctx context.Context, data info.Getter) bool {
 	for _, x := range s.selectors {
-		if !x.Select(data) {
+		if !x.Select(ctx, data) {
 			return false
 		}
 	}
@@ -65,9 +66,9 @@ type OrSelector struct {
 	selectors []Selector
 }
 
-func (s OrSelector) Select(data info.Getter) bool {
+func (s OrSelector) Select(ctx context.Context, data info.Getter) bool {
 	for _, x := range s.selectors {
-		if x.Select(data) {
+		if x.Select(ctx, data) {
 			return true
 		}
 	}

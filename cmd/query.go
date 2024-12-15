@@ -55,6 +55,13 @@ Note: All metadata values are interpreted as strings.
 
 To check which 'key' are actually available, please use the 'fflist debug' command or the '--verbose' option.
 
+Using sh 'key' allows you to execute a sh script and output the file path only if the exit status is 0.
+The value of sh 'key' is the main body of the script, and environment variables are available.
+The script receives the entire file metadata in jsonl format from standard input.
+For example, by writing a QUERY like the following, you can output only the file paths of files that exceed 8,000,000 bytes in size.
+
+  'sh=jq "select((.size|tonumber) > 8000000).name" -r | grep -E ".+" -q'
+
 Using the '--config' option allows you to specify the search directory and QUERY from a file.
 The file has the following format:
 

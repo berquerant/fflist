@@ -8,6 +8,10 @@ import (
 	"github.com/berquerant/fflist/slicesx"
 )
 
+const (
+	queryShKey = "sh"
+)
+
 func ParseQuery(args []string) (query.Selector, error) {
 	r := make([]query.Selector, len(args))
 	for i, a := range args {
@@ -16,9 +20,16 @@ func ParseQuery(args []string) (query.Selector, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: index %d", err, i)
 		}
-		s, err := query.NewRegexpSelector(x)
-		if err != nil {
-			return nil, fmt.Errorf("%w: index %d", err, i)
+
+		var s query.Selector
+		switch x.Key() {
+		case queryShKey:
+			s = query.NewScriptSelector(x)
+		default:
+			s, err = query.NewRegexpSelector(x)
+			if err != nil {
+				return nil, fmt.Errorf("%w: index %d", err, i)
+			}
 		}
 		r[i] = s
 	}

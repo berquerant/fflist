@@ -63,7 +63,7 @@ func (q *Query) Run(ctx context.Context) error {
 	dataC := q.probeWorker(ctx, entryC)
 
 	for data := range dataC {
-		if !q.selector.Select(data) {
+		if !q.selector.Select(ctx, data) {
 			continue
 		}
 		if err := q.output(data); err != nil {

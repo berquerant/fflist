@@ -1,6 +1,7 @@
 package query
 
 import (
+	"context"
 	"log/slog"
 	"regexp"
 
@@ -28,7 +29,7 @@ func NewRegexpSelector(q Query) (*RegexpSelector, error) {
 	}, nil
 }
 
-func (s RegexpSelector) Select(data info.Getter) bool {
+func (s RegexpSelector) Select(_ context.Context, data info.Getter) bool {
 	logAttr := []any{
 		slog.String("key", s.key),
 		slog.String("r", s.r.String()),

@@ -1,6 +1,7 @@
 package query_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/berquerant/fflist/query"
@@ -49,7 +50,7 @@ func TestRegexpSelector(t *testing.T) {
 			}
 			getter := new(mockInfoGetter)
 			getter.On("Get", tc.q.Key()).Return(tc.value, tc.exist)
-			got := s.Select(getter)
+			got := s.Select(context.TODO(), getter)
 			assert.Equal(t, tc.want, got)
 		})
 	}
