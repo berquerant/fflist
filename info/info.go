@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/berquerant/fflist/meta"
@@ -46,13 +47,17 @@ func (d Metadata) Get(key string) (string, bool) {
 }
 
 func NewMetadataFromEntry(entry walk.Entry) *meta.Data {
-	path := entry.Path()
-	name := entry.Info().Name()
+	var (
+		path = entry.Path()
+		name = entry.Info().Name()
+		ext  = filepath.Ext(name)
+	)
 	return meta.NewData(map[string]string{
 		"path":     path,
 		"dir":      filepath.Dir(path),
 		"name":     name,
-		"ext":      filepath.Ext(name),
+		"ext":      ext,
+		"basename": strings.TrimRight(name, ext),
 		"size":     fmt.Sprint(entry.Info().Size()),
 		"mode":     fmt.Sprintf("%o", entry.Info().Mode()),
 		"mod_time": entry.Info().ModTime().Format(time.DateTime),
