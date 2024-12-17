@@ -50,3 +50,11 @@ func ParseQueryCommandLine(args []string) (query.Selector, error) {
 
 	return query.NewOrSelector(r...), nil
 }
+
+func ExpandEnvAll(ss ...string) []string {
+	r := make([]string, len(ss))
+	for i, s := range ss {
+		r[i] = os.ExpandEnv(s)
+	}
+	return r
+}

@@ -25,17 +25,12 @@ func NewQuery(
 	verbose bool,
 	probeWorkerNum int,
 ) *Query {
-	r := make([]string, len(root))
-	for i := range root {
-		r[i] = os.ExpandEnv(root[i])
-	}
-
 	walkWorker := worker.NewWalker(newWalker)
 	probeWorker := worker.NewProbe(prober, probeWorkerNum)
 
 	return &Query{
 		selector: selector,
-		root:     r,
+		root:     ExpandEnvAll(root...),
 		verbose:  verbose,
 
 		walkWorker:  walkWorker,
