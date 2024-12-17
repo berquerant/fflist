@@ -6,7 +6,6 @@ import (
 	"github.com/berquerant/fflist/meta"
 	"github.com/berquerant/fflist/query"
 	"github.com/berquerant/fflist/run"
-	"github.com/berquerant/fflist/walk"
 	"github.com/spf13/cobra"
 )
 
@@ -95,12 +94,12 @@ You can use environment variables (e.g. '$VARNAME') in the file specified by the
 Exmaples:
 # in ~/Music, match name
 fflist query -r ~/Music 'name=NAME'
-
 # in ~/Music, match artist and genre
 fflist query -r ~/Music 'artist=ARTIST' 'genre=GENRE'
 # in ~/Music, either meet name=NAME1 or both name=NAME2 and artist=ARTIST
 fflist query -r ~/Music name=NAME1 OR name=NAME2 artist=ARTIST
-`,
+# read paths from stdin, match name
+fflist query -r - name=NAME < path.list`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
 			selector query.Selector
@@ -127,12 +126,15 @@ fflist query -r ~/Music name=NAME1 OR name=NAME2 artist=ARTIST
 			return err
 		}
 
+		newWalker, err := newWalkerFactory(root)
+		if err != nil {
+			return err
+		}
+
 		q := run.NewQuery(
 			meta.NewProber(getProbe(cmd)),
 			selector,
-			func() walk.Walker {
-				return walk.New()
-			},
+			newWalker,
 			root,
 			getVerbose(cmd),
 			getProbeWorkerNum(cmd),

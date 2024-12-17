@@ -1,10 +1,13 @@
 package walk
 
 import (
+	"bufio"
 	"context"
+	"io"
 	"io/fs"
 	"iter"
 	"log/slog"
+	"os"
 	"path/filepath"
 
 	"github.com/berquerant/fflist/logx"
@@ -22,7 +25,7 @@ var (
 	_ Walker = &FileWalker{}
 )
 
-func New() *FileWalker { return &FileWalker{} }
+func NewFile() *FileWalker { return &FileWalker{} }
 
 // FileWalker walks only files under the root.
 type FileWalker struct {
@@ -32,14 +35,14 @@ type FileWalker struct {
 func (w FileWalker) Err() error { return w.err }
 
 const (
-	fileWalkerBufferSize = 100
+	walkerBufferSize = 100
 )
 
 func (w *FileWalker) Walk(root string) iter.Seq[Entry] {
 	w.err = nil
 
 	return func(yield func(Entry) bool) {
-		resultC := make(chan Entry, fileWalkerBufferSize)
+		resultC := make(chan Entry, walkerBufferSize)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -66,6 +69,87 @@ func (w *FileWalker) Walk(root string) iter.Seq[Entry] {
 					return nil
 				}
 			})
+		}()
+
+		for x := range resultC {
+			if !yield(x) {
+				return
+			}
+		}
+	}
+}
+
+var (
+	_ Walker = &ReaderWalker{}
+)
+
+type ReaderWalker struct {
+	r          io.Reader
+	fileWalker Walker
+	err        error
+}
+
+func NewReader(r io.Reader, fileWalker Walker) *ReaderWalker {
+	return &ReaderWalker{
+		r:          r,
+		fileWalker: fileWalker,
+	}
+}
+
+func (w ReaderWalker) Err() error { return w.err }
+
+func (w *ReaderWalker) Walk(_ string) iter.Seq[Entry] {
+	w.err = nil
+
+	return func(yield func(Entry) bool) {
+		resultC := make(chan Entry, walkerBufferSize)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		go func() {
+			defer close(resultC)
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				scanner := bufio.NewScanner(w.r)
+				for scanner.Scan() {
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						path := scanner.Text()
+						info, err := os.Stat(path)
+						if os.IsNotExist(err) {
+							slog.Debug("ReaderWalker", slog.String("path", path), logx.Err(err))
+							continue
+						}
+
+						slog.Debug("ReaderWalker", slog.String("path", path), logx.Err(err))
+						metric.IncrEntryCount()
+
+						if err != nil {
+							w.err = err
+							return
+						}
+						if info.IsDir() {
+							for x := range w.fileWalker.Walk(path) {
+								resultC <- x
+							}
+							if err := w.fileWalker.Err(); err != nil {
+								slog.Warn("ReaderWalker", slog.String("path", path), logx.Err(err))
+							}
+							continue
+						}
+						resultC <- NewEntry(path, info)
+					}
+				}
+
+				if err := scanner.Err(); err != nil {
+					w.err = err
+				}
+			}
 		}()
 
 		for x := range resultC {

@@ -90,11 +90,12 @@ You can use environment variables (e.g. '$VARNAME') in the file specified by the
 Exmaples:
 # in ~/Music, match name
 fflist query -r ~/Music 'name=NAME'
-
 # in ~/Music, match artist and genre
 fflist query -r ~/Music 'artist=ARTIST' 'genre=GENRE'
 # in ~/Music, either meet name=NAME1 or both name=NAME2 and artist=ARTIST
 fflist query -r ~/Music name=NAME1 OR name=NAME2 artist=ARTIST
+# read paths from stdin, match name
+fflist query -r - name=NAME < path.list
 
 Usage:
   fflist query [QUERY...] [flags]

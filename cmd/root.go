@@ -2,11 +2,14 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 
 	"github.com/berquerant/fflist/logx"
 	"github.com/berquerant/fflist/run"
+	"github.com/berquerant/fflist/walk"
 	"github.com/spf13/cobra"
 )
 
@@ -90,4 +93,22 @@ func getConfig(cmd *cobra.Command) (*run.Config, error) {
 	}
 	defer f.Close()
 	return run.ParseConfig(f)
+}
+
+const (
+	stdinMark = "-"
+)
+
+var (
+	errArgument = errors.New("Argument")
+)
+
+func newWalkerFactory(args []string) (func() walk.Walker, error) {
+	if !slices.Contains(args, stdinMark) {
+		return func() walk.Walker { return walk.NewFile() }, nil
+	}
+	if len(args) != 1 {
+		return nil, fmt.Errorf("%w: no other roots can be specified when using - (stdin)", errArgument)
+	}
+	return func() walk.Walker { return walk.NewReader(os.Stdin, walk.NewFile()) }, nil
 }

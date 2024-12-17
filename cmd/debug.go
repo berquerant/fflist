@@ -7,7 +7,6 @@ import (
 	"github.com/berquerant/fflist/logx"
 	"github.com/berquerant/fflist/meta"
 	"github.com/berquerant/fflist/run"
-	"github.com/berquerant/fflist/walk"
 	"github.com/spf13/cobra"
 )
 
@@ -18,14 +17,25 @@ func init() {
 var debugCmd = &cobra.Command{
 	Use:   "debug [DIR...]",
 	Short: `Walk directories and show metadata`,
+	Long: `Walk directories and show metadata.
+
+# walk ~/Music
+fflint debug ~/Music
+# read paths from stdin
+fflint debug -`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		roots := []string{"."}
 		if len(args) > 0 {
 			roots = args
 		}
 
+		newWalker, err := newWalkerFactory(roots)
+		if err != nil {
+			return err
+		}
+
 		var (
-			walker = walk.New()
+			walker = newWalker()
 			prober = meta.NewProber(getProbe(cmd))
 		)
 

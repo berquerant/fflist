@@ -1,10 +1,12 @@
 package walk_test
 
 import (
+	"bytes"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/berquerant/fflist/logx"
@@ -59,63 +61,127 @@ func TestWalker(t *testing.T) {
 		touch(t, f3)
 	})
 
-	for _, tc := range []struct {
-		name string
-		root string
-		want []string
-	}{
-		{
-			name: "d31",
-			root: d31,
-			want: []string{
-				f3,
+	t.Run("ReaderWalker", func(t *testing.T) {
+		for _, tc := range []struct {
+			name  string
+			input []string
+			want  []string
+		}{
+			{
+				name: "exclude not exist",
+				input: []string{
+					f2 + "notexist",
+					f1,
+				},
+				want: []string{
+					f1,
+				},
 			},
-		},
-		{
-			name: "d3",
-			root: d3,
-			want: []string{
-				f2,
-				f3,
+			{
+				name: "exclude dir but walk dir",
+				input: []string{
+					d1,
+					d2,
+					f2,
+				},
+				want: []string{
+					f1,
+					f2,
+				},
 			},
-		},
-		{
-			name: "d2",
-			root: d2,
-			want: []string{
-				f1,
+			{
+				name: "a file",
+				input: []string{
+					f1,
+				},
+				want: []string{
+					f1,
+				},
 			},
-		},
-		{
-			name: "d",
-			root: d,
-			want: []string{
-				f1,
-				f2,
-				f3,
+			{
+				name: "empty",
+				want: []string{},
 			},
-		},
-		{
-			name: "d1",
-			root: d1,
-			want: []string{},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			w := walk.New()
-			r := slices.Collect(w.Walk(tc.root))
-			if !assert.Nil(t, w.Err()) {
-				t.Errorf("%#v", w.Err())
-			}
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				r := bytes.NewBufferString(strings.Join(tc.input, "\n"))
+				w := walk.NewReader(r, walk.NewFile())
+				result := slices.Collect(w.Walk(""))
+				if !assert.Nil(t, w.Err()) {
+					t.Errorf("%#v", w.Err())
+				}
 
-			got := make([]string, len(r))
-			for i, x := range r {
-				got[i] = x.Path()
-			}
+				got := make([]string, len(result))
+				for i, x := range result {
+					got[i] = x.Path()
+				}
 
-			slices.Sort(tc.want)
-			slices.Sort(got)
-			assert.Equal(t, tc.want, got)
-		})
-	}
+				slices.Sort(tc.want)
+				slices.Sort(got)
+				assert.Equal(t, tc.want, got)
+			})
+		}
+	})
+
+	t.Run("FileWalker", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			root string
+			want []string
+		}{
+			{
+				name: "d31",
+				root: d31,
+				want: []string{
+					f3,
+				},
+			},
+			{
+				name: "d3",
+				root: d3,
+				want: []string{
+					f2,
+					f3,
+				},
+			},
+			{
+				name: "d2",
+				root: d2,
+				want: []string{
+					f1,
+				},
+			},
+			{
+				name: "d",
+				root: d,
+				want: []string{
+					f1,
+					f2,
+					f3,
+				},
+			},
+			{
+				name: "d1",
+				root: d1,
+				want: []string{},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				w := walk.NewFile()
+				r := slices.Collect(w.Walk(tc.root))
+				if !assert.Nil(t, w.Err()) {
+					t.Errorf("%#v", w.Err())
+				}
+
+				got := make([]string, len(r))
+				for i, x := range r {
+					got[i] = x.Path()
+				}
+
+				slices.Sort(tc.want)
+				slices.Sort(got)
+				assert.Equal(t, tc.want, got)
+			})
+		}
+	})
 }
