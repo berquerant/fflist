@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/berquerant/fflist/info"
@@ -15,11 +14,7 @@ import (
 	"github.com/berquerant/fflist/metric"
 	"github.com/berquerant/fflist/query"
 	"github.com/berquerant/fflist/walk"
-	"golang.org/x/sync/errgroup"
-)
-
-const (
-	queryWorkerBufferSize = 100
+	"github.com/berquerant/fflist/worker"
 )
 
 func NewQuery(
@@ -34,33 +29,34 @@ func NewQuery(
 	for i := range root {
 		r[i] = os.ExpandEnv(root[i])
 	}
+
+	walkWorker := worker.NewWalker(newWalker)
+	probeWorker := worker.NewProbe(prober, probeWorkerNum)
+
 	return &Query{
-		selector:       selector,
-		newWalker:      newWalker,
-		root:           r,
-		verbose:        verbose,
-		prober:         prober,
-		probeWorkerNum: probeWorkerNum,
+		selector: selector,
+		root:     r,
+		verbose:  verbose,
+
+		walkWorker:  walkWorker,
+		probeWorker: probeWorker,
 	}
 }
 
 type Query struct {
-	selector       query.Selector
-	newWalker      func() walk.Walker
-	root           []string
-	verbose        bool
-	prober         meta.Prober
-	probeWorkerNum int
+	selector query.Selector
+	root     []string
+	verbose  bool
 
-	sync.Mutex
-	err error
+	walkWorker  *worker.Walker
+	probeWorker *worker.Prober
 }
 
 func (q *Query) Run(ctx context.Context) error {
 	startTime := time.Now()
 
-	entryC := q.walkWorker(ctx)
-	dataC := q.probeWorker(ctx, entryC)
+	entryC := q.walkWorker.Start(ctx, q.root...)
+	dataC := q.probeWorker.Start(ctx, entryC)
 
 	for data := range dataC {
 		if !q.selector.Select(ctx, data) {
@@ -72,79 +68,8 @@ func (q *Query) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := q.outputMetrics(time.Since(startTime)); err != nil {
-		slog.Error("Failed to output metrics", logx.Err(err))
-	}
-
-	q.Lock()
-	defer q.Unlock()
-	return q.err
-}
-
-func (q *Query) setErr(err error) {
-	q.Lock()
-	defer q.Unlock()
-	q.err = err
-}
-
-func (q *Query) walkWorker(ctx context.Context) <-chan walk.Entry {
-	eg, ctx := errgroup.WithContext(ctx)
-	var (
-		entryC = make(chan walk.Entry, queryWorkerBufferSize)
-	)
-
-	for _, root := range q.root {
-		eg.Go(func() error {
-			walker := q.newWalker()
-			for entry := range walker.Walk(root) {
-				select {
-				case <-ctx.Done():
-					break
-				default:
-					entryC <- entry
-				}
-			}
-			return walker.Err()
-		})
-	}
-
-	go func() {
-		if err := eg.Wait(); err != nil {
-			q.setErr(err)
-		}
-		close(entryC)
-	}()
-
-	return entryC
-}
-
-func (q *Query) probeWorker(ctx context.Context, entryC <-chan walk.Entry) <-chan info.Getter {
-	var (
-		wg      sync.WaitGroup
-		resultC = make(chan info.Getter, queryWorkerBufferSize)
-	)
-
-	for range q.probeWorkerNum {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for entry := range entryC {
-				resultC <- q.buildGetter(ctx, entry)
-			}
-		}()
-	}
-
-	go func() {
-		wg.Wait()
-		close(resultC)
-	}()
-
-	return resultC
-}
-
-func (q *Query) buildGetter(ctx context.Context, entry walk.Entry) info.Getter {
-	return BuildInfoGetter(ctx, q.prober, entry)
+	q.outputMetrics(time.Since(startTime))
+	return q.walkWorker.Err()
 }
 
 func (q *Query) output(data info.Getter) error {
@@ -164,14 +89,13 @@ func (q *Query) output(data info.Getter) error {
 	return nil
 }
 
-func (q *Query) outputMetrics(duration time.Duration) error {
+func (q *Query) outputMetrics(duration time.Duration) {
 	if !q.verbose {
-		return nil
+		return
 	}
 
 	fmt.Fprintf(os.Stderr, "%s\n", logx.Jsonify(map[string]any{
 		"Duration": duration.Seconds(),
 		"Metrics":  metric.Get(),
 	}))
-	return nil
 }

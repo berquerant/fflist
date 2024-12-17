@@ -6,7 +6,7 @@ import (
 
 	"github.com/berquerant/fflist/logx"
 	"github.com/berquerant/fflist/meta"
-	"github.com/berquerant/fflist/run"
+	"github.com/berquerant/fflist/worker"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +41,7 @@ fflint debug -`,
 
 		for _, root := range roots {
 			for x := range walker.Walk(root) {
-				e := logx.Jsonify(run.BuildInfoGetter(cmd.Context(), prober, x))
+				e := logx.Jsonify(worker.BuildInfoGetter(cmd.Context(), prober, x))
 				fmt.Printf("%s\n", e)
 			}
 			if err := walker.Err(); err != nil {
