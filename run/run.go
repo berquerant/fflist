@@ -2,16 +2,12 @@ package run
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os"
 	"time"
 
-	"github.com/berquerant/fflist/info"
 	"github.com/berquerant/fflist/logx"
 	"github.com/berquerant/fflist/meta"
-	"github.com/berquerant/fflist/metric"
 	"github.com/berquerant/fflist/query"
 	"github.com/berquerant/fflist/walk"
 	"github.com/berquerant/fflist/worker"
@@ -27,24 +23,21 @@ func NewQuery(
 ) *Query {
 	walkWorker := worker.NewWalker(newWalker)
 	probeWorker := worker.NewProbe(prober, probeWorkerNum)
+	writer := NewWriter(os.Stdout, selector, verbose)
 
 	return &Query{
-		selector: selector,
-		root:     ExpandEnvAll(root...),
-		verbose:  verbose,
-
+		root:        ExpandEnvAll(root...),
 		walkWorker:  walkWorker,
 		probeWorker: probeWorker,
+		writer:      writer,
 	}
 }
 
 type Query struct {
-	selector query.Selector
-	root     []string
-	verbose  bool
-
+	root        []string
 	walkWorker  *worker.Walker
 	probeWorker *worker.Prober
+	writer      *Writer
 }
 
 func (q *Query) Run(ctx context.Context) error {
@@ -54,43 +47,12 @@ func (q *Query) Run(ctx context.Context) error {
 	dataC := q.probeWorker.Start(ctx, entryC)
 
 	for data := range dataC {
-		if !q.selector.Select(ctx, data) {
-			continue
-		}
-		if err := q.output(data); err != nil {
+		if err := q.writer.Write(ctx, data); err != nil {
 			path, _ := data.Get("path")
 			slog.Error("Failed to output", slog.String("path", path), logx.Err(err))
 		}
 	}
 
-	q.outputMetrics(time.Since(startTime))
+	q.writer.WriteMetrics(time.Since(startTime))
 	return q.walkWorker.Err()
-}
-
-func (q *Query) output(data info.Getter) error {
-	metric.IncrAcceptCount()
-
-	if q.verbose {
-		b, err := json.Marshal(data)
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Printf("%s\n", b)
-		return err
-	}
-
-	path, _ := data.Get("path")
-	fmt.Println(path)
-	return nil
-}
-
-func (q *Query) outputMetrics(duration time.Duration) {
-	if !q.verbose {
-		return
-	}
-
-	fmt.Fprintf(os.Stderr, "%s\n", logx.Jsonify(map[string]any{
-		"Duration": duration.Seconds(),
-		"Metrics":  metric.Get(),
-	}))
 }
