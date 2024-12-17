@@ -3,10 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"slices"
 
+	"github.com/berquerant/fflist/iox"
 	"github.com/berquerant/fflist/logx"
 	"github.com/berquerant/fflist/run"
 	"github.com/berquerant/fflist/walk"
@@ -73,6 +75,24 @@ func getProbeWorkerNum(cmd *cobra.Command) int {
 	return x
 }
 
+func createIndexFlag(cmd *cobra.Command) {
+	cmd.Flags().Bool("createIndex", false, "Dump all metadata")
+}
+
+func getCreateIndex(cmd *cobra.Command) bool {
+	x, _ := cmd.Flags().GetBool("createIndex")
+	return x
+}
+
+func readIndexFlag(cmd *cobra.Command) {
+	cmd.Flags().Bool("readIndex", false, "Read metadata from root, as index file")
+}
+
+func getReadIndex(cmd *cobra.Command) bool {
+	x, _ := cmd.Flags().GetBool("readIndex")
+	return x
+}
+
 var (
 	errNoConfig = errors.New("NoConfig")
 )
@@ -111,4 +131,24 @@ func newWalkerFactory(args []string) (func() walk.Walker, error) {
 		return nil, fmt.Errorf("%w: no other roots can be specified when using - (stdin)", errArgument)
 	}
 	return func() walk.Walker { return walk.NewReader(os.Stdin, walk.NewFile()) }, nil
+}
+
+func newIndexReader(args []string) (iox.ReaderAndCloser, error) {
+	if !slices.Contains(args, stdinMark) {
+		fs, err := iox.Open(args...)
+		if err != nil {
+			return nil, err
+		}
+		rs := make([]io.ReadCloser, len(args))
+		for i, f := range fs {
+			rs[i] = f
+		}
+		return iox.NewMultiReaderAndCloser(rs...), nil
+	}
+
+	if len(args) != 1 {
+		return nil, fmt.Errorf("%w: no other roots can be specified when using - (stdin)", errArgument)
+	}
+
+	return iox.AsReaderAndCloser(os.Stdin), nil
 }

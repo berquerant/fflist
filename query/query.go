@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/berquerant/fflist/info"
+	"github.com/berquerant/fflist/metric"
 )
 
 //go:generate go run github.com/berquerant/dataclass -type Query -field "Key string|Value string" -output query_dataclass_generated.go
@@ -73,4 +74,20 @@ func (s OrSelector) Select(ctx context.Context, data info.Getter) bool {
 		}
 	}
 	return false
+}
+
+var (
+	_ Selector = &TrueSelector{}
+)
+
+func NewTrueSelector() *TrueSelector {
+	return &TrueSelector{}
+}
+
+type TrueSelector struct{}
+
+func (TrueSelector) Select(_ context.Context, _ info.Getter) bool {
+	metric.IncrSelectCount()
+	metric.IncrSelectSuccessCount()
+	return true
 }

@@ -1,30 +1,25 @@
 package run
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
+	"io"
 	"log/slog"
-	"os"
 	"time"
 
+	"github.com/berquerant/fflist/info"
 	"github.com/berquerant/fflist/logx"
 	"github.com/berquerant/fflist/meta"
-	"github.com/berquerant/fflist/query"
-	"github.com/berquerant/fflist/walk"
 	"github.com/berquerant/fflist/worker"
 )
 
 func NewQuery(
-	prober meta.Prober,
-	selector query.Selector,
-	newWalker func() walk.Walker,
 	root []string,
-	verbose bool,
-	probeWorkerNum int,
+	walkWorker *worker.Walker,
+	probeWorker *worker.Prober,
+	writer *Writer,
 ) *Query {
-	walkWorker := worker.NewWalker(newWalker)
-	probeWorker := worker.NewProbe(prober, probeWorkerNum)
-	writer := NewWriter(os.Stdout, selector, verbose)
-
 	return &Query{
 		root:        ExpandEnvAll(root...),
 		walkWorker:  walkWorker,
@@ -55,4 +50,39 @@ func (q *Query) Run(ctx context.Context) error {
 
 	q.writer.WriteMetrics(time.Since(startTime))
 	return q.walkWorker.Err()
+}
+
+func NewIndexQuery(
+	r io.Reader,
+	writer *Writer,
+) *IndexQuery {
+	return &IndexQuery{
+		r:      r,
+		writer: writer,
+	}
+}
+
+type IndexQuery struct {
+	r      io.Reader
+	writer *Writer
+}
+
+func (q *IndexQuery) Run(ctx context.Context) error {
+	startTime := time.Now()
+
+	scanner := bufio.NewScanner(q.r)
+	for scanner.Scan() {
+		d := map[string]string{}
+		if err := json.Unmarshal(scanner.Bytes(), &d); err != nil {
+			slog.Warn("IndexQuery", logx.Err(err))
+			continue
+		}
+		md := info.New(meta.NewData(d))
+		if err := q.writer.Write(ctx, md); err != nil {
+			slog.Warn("IndexQuery", logx.Err(err))
+		}
+	}
+
+	q.writer.WriteMetrics(time.Since(startTime))
+	return nil
 }

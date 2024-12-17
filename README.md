@@ -96,13 +96,19 @@ fflist query -r ~/Music 'artist=ARTIST' 'genre=GENRE'
 fflist query -r ~/Music name=NAME1 OR name=NAME2 artist=ARTIST
 # read paths from stdin, match name
 fflist query -r - name=NAME < path.list
+# create index of ~/Music
+fflist query -r ~/Music --createIndex > index
+# in the index, match name
+fflist query -r index --readIndex 'name=NAME'
 
 Usage:
   fflist query [QUERY...] [flags]
 
 Flags:
   -c, --config string   Query config file
+      --createIndex     Dump all metadata
   -h, --help            help for query
+      --readIndex       Read metadata from root, as index file
   -r, --root strings    Root directories (default [.])
   -v, --verbose         Verbose output
   -w, --worker int      Probe worker num (default 8)

@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"os"
 
 	"github.com/berquerant/fflist/meta"
 	"github.com/berquerant/fflist/query"
 	"github.com/berquerant/fflist/run"
+	"github.com/berquerant/fflist/worker"
 	"github.com/spf13/cobra"
 )
 
@@ -15,6 +18,8 @@ func init() {
 	verboseFlag(queryCmd)
 	probeWorkerNumFlag(queryCmd)
 	configFlag(queryCmd)
+	createIndexFlag(queryCmd)
+	readIndexFlag(queryCmd)
 }
 
 var queryCmd = &cobra.Command{
@@ -99,7 +104,11 @@ fflist query -r ~/Music 'artist=ARTIST' 'genre=GENRE'
 # in ~/Music, either meet name=NAME1 or both name=NAME2 and artist=ARTIST
 fflist query -r ~/Music name=NAME1 OR name=NAME2 artist=ARTIST
 # read paths from stdin, match name
-fflist query -r - name=NAME < path.list`,
+fflist query -r - name=NAME < path.list
+# create index of ~/Music
+fflist query -r ~/Music --createIndex > index
+# in the index, match name
+fflist query -r index --readIndex 'name=NAME'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
 			selector query.Selector
@@ -126,20 +135,50 @@ fflist query -r - name=NAME < path.list`,
 			return err
 		}
 
+		var (
+			verbose = getVerbose(cmd)
+		)
+
+		if getReadIndex(cmd) {
+			return readIndex(cmd.Context(), root, run.NewWriter(os.Stdout, selector, verbose))
+		}
+
+		if getCreateIndex(cmd) {
+			// probe all files
+			selector = query.NewTrueSelector()
+			// dump metadata
+			verbose = true
+		}
+
 		newWalker, err := newWalkerFactory(root)
 		if err != nil {
 			return err
 		}
 
+		var (
+			writer      = run.NewWriter(os.Stdout, selector, verbose)
+			walkWorker  = worker.NewWalker(newWalker)
+			probeWorker = worker.NewProbe(meta.NewProber(getProbe(cmd)), getProbeWorkerNum(cmd))
+		)
+
 		q := run.NewQuery(
-			meta.NewProber(getProbe(cmd)),
-			selector,
-			newWalker,
 			root,
-			getVerbose(cmd),
-			getProbeWorkerNum(cmd),
+			walkWorker,
+			probeWorker,
+			writer,
 		)
 
 		return q.Run(cmd.Context())
 	},
+}
+
+func readIndex(ctx context.Context, root []string, writer *run.Writer) error {
+	r, err := newIndexReader(root)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	q := run.NewIndexQuery(r.Reader(), writer)
+	return q.Run(ctx)
 }
