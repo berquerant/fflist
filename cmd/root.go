@@ -17,7 +17,7 @@ import (
 
 func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logs")
-	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Quiet logs")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Quiet logs except ERROR")
 	rootCmd.PersistentFlags().StringP("probe", "p", "ffprobe", "Media analyzer command")
 }
 
@@ -46,7 +46,10 @@ Requirements:
 }
 
 func rootFlag(cmd *cobra.Command) {
-	cmd.Flags().StringSliceP("root", "r", []string{"."}, "Root directories")
+	cmd.Flags().StringSliceP("root", "r", []string{"."}, fmt.Sprintf(
+		"Root directories. Read paths from stdin by '%s'",
+		stdinMark,
+	))
 }
 
 func getRoot(cmd *cobra.Command) []string {
@@ -55,7 +58,7 @@ func getRoot(cmd *cobra.Command) []string {
 }
 
 func verboseFlag(cmd *cobra.Command) {
-	cmd.Flags().BoolP("verbose", "v", false, "Verbose output")
+	cmd.Flags().BoolP("verbose", "v", false, "Verbose output. Output metadata to stdout and metrics to stderr")
 }
 
 func getVerbose(cmd *cobra.Command) bool {
@@ -76,7 +79,7 @@ func getProbeWorkerNum(cmd *cobra.Command) int {
 }
 
 func createIndexFlag(cmd *cobra.Command) {
-	cmd.Flags().Bool("createIndex", false, "Dump all metadata")
+	cmd.Flags().Bool("createIndex", false, "Dump all metadata. Equivalent to '--verbose' and ignoring all QUERY")
 }
 
 func getCreateIndex(cmd *cobra.Command) bool {
@@ -85,7 +88,11 @@ func getCreateIndex(cmd *cobra.Command) bool {
 }
 
 func readIndexFlag(cmd *cobra.Command) {
-	cmd.Flags().StringSliceP("readIndex", "i", nil, "Read metadata from the files instead of walking '--root'")
+	cmd.Flags().StringSliceP("readIndex", "i", nil, fmt.Sprintf(
+		`Read metadata from the specified files instead of scanning the directory specified by '--root' or config.root.
+Read metadata from stdin by '%s'`,
+		stdinMark,
+	))
 }
 
 func getReadIndex(cmd *cobra.Command) []string {

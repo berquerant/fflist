@@ -99,22 +99,27 @@ fflist query -r - name=NAME < path.list
 # create index of ~/Music
 fflist query -r ~/Music --createIndex > index
 # in the index, match name
-fflist query -r index --readIndex 'name=NAME'
+fflist query --readIndex index 'name=NAME'
+# create index from config
+fflist query -c config.yml --createIndex > index
+# read index and query config
+fflist query -c config.yml --readIndex index
 
 Usage:
   fflist query [QUERY...] [flags]
 
 Flags:
-  -c, --config string   Query config file
-      --createIndex     Dump all metadata
-  -h, --help            help for query
-      --readIndex       Read metadata from root, as index file
-  -r, --root strings    Root directories (default [.])
-  -v, --verbose         Verbose output
-  -w, --worker int      Probe worker num (default 8)
+  -c, --config string       Query config file
+      --createIndex         Dump all metadata. Equivalent to '--verbose' and ignoring all QUERY
+  -h, --help                help for query
+  -i, --readIndex strings   Read metadata from the specified files instead of scanning the directory specified by '--root' or config.root.
+                            Read metadata from stdin by '-'
+  -r, --root strings        Root directories. Read paths from stdin by '-' (default [.])
+  -v, --verbose             Verbose output. Output metadata to stdout and metrics to stderr
+  -w, --worker int          Probe worker num (default 8)
 
 Global Flags:
       --debug          Enable debug logs
   -p, --probe string   Media analyzer command (default "ffprobe")
-  -q, --quiet          Quiet logs
+  -q, --quiet          Quiet logs except ERROR
 ```
