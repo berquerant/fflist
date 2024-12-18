@@ -85,11 +85,11 @@ func getCreateIndex(cmd *cobra.Command) bool {
 }
 
 func readIndexFlag(cmd *cobra.Command) {
-	cmd.Flags().Bool("readIndex", false, "Read metadata from root, as index file")
+	cmd.Flags().StringSliceP("readIndex", "i", nil, "Read metadata from the files instead of walking '--root'")
 }
 
-func getReadIndex(cmd *cobra.Command) bool {
-	x, _ := cmd.Flags().GetBool("readIndex")
+func getReadIndex(cmd *cobra.Command) []string {
+	x, _ := cmd.Flags().GetStringSlice("readIndex")
 	return x
 }
 

@@ -108,7 +108,11 @@ fflist query -r - name=NAME < path.list
 # create index of ~/Music
 fflist query -r ~/Music --createIndex > index
 # in the index, match name
-fflist query -r index --readIndex 'name=NAME'`,
+fflist query --readIndex index 'name=NAME'
+# create index from config
+fflist query -c config.yml --createIndex > index
+# read index and query config
+fflist query -c config.yml --readIndex index`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
 			selector query.Selector
@@ -139,8 +143,8 @@ fflist query -r index --readIndex 'name=NAME'`,
 			verbose = getVerbose(cmd)
 		)
 
-		if getReadIndex(cmd) {
-			return readIndex(cmd.Context(), root, run.NewWriter(os.Stdout, selector, verbose))
+		if indexFiles := getReadIndex(cmd); len(indexFiles) > 0 {
+			return readIndex(cmd.Context(), indexFiles, run.NewWriter(os.Stdout, selector, verbose))
 		}
 
 		if getCreateIndex(cmd) {
@@ -172,8 +176,8 @@ fflist query -r index --readIndex 'name=NAME'`,
 	},
 }
 
-func readIndex(ctx context.Context, root []string, writer *run.Writer) error {
-	r, err := newIndexReader(root)
+func readIndex(ctx context.Context, indexFiles []string, writer *run.Writer) error {
+	r, err := newIndexReader(indexFiles)
 	if err != nil {
 		return err
 	}
